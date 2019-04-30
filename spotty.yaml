@@ -1,0 +1,49 @@
+project:
+  name: dvc-versioning
+  syncFilters:
+    - exclude:
+        - .git/*
+        - .idea/*
+        - '*/__pycache__/*'
+        - data/*
+
+container:
+  projectDir: /workspace/project
+  file: docker/Dockerfile
+  ports: [6006, 8888]
+  volumeMounts:
+    - name: workspace
+      mountPath: /workspace
+  commands: |
+    dvc pull || true
+
+instances:
+  - name: i1
+    provider: aws
+    parameters:
+      region: us-east-2
+      instanceType: p2.xlarge
+      volumes:
+        - name: workspace
+          parameters:
+            size: 10
+            deletionPolicy: retain
+
+scripts:
+  train: |
+    dvc remove model.h5.dvc || true
+    python train.py
+    dvc add model.h5
+    dvc push
+  download-dataset: |
+    wget https://dvc.org/s3/examples/versioning/data.zip
+    unzip data.zip
+    rm -f data.zip
+    dvc add data
+    dvc push
+  update-dataset: |
+    wget https://dvc.org/s3/examples/versioning/new-labels.zip
+    unzip new-labels.zip
+    rm -f new-labels.zip
+    dvc add data
+    dvc push
